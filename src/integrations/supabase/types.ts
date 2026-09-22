@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       coordinators: {
         Row: {
+          active: boolean
           created_at: string
           id: string
           name: string
@@ -24,6 +25,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          active?: boolean
           created_at?: string
           id?: string
           name: string
@@ -32,6 +34,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          active?: boolean
           created_at?: string
           id?: string
           name?: string
@@ -308,6 +311,8 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -317,6 +322,8 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -326,6 +333,8 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
@@ -338,28 +347,6 @@ export type Database = {
     }
     Functions: {
       approve_account: { Args: { _user_id: string }; Returns: undefined }
-      deactivate_account: { Args: { _user_id: string }; Returns: undefined }
-      reactivate_account: { Args: { _user_id: string }; Returns: undefined }
-      open_task_count: { Args: { _user_id: string }; Returns: number }
-      my_account: {
-        Args: never
-        Returns: {
-          active: boolean
-          approved: boolean
-          name: string | null
-          role: Database["public"]["Enums"]["app_role"]
-        }[]
-      }
-      recent_self_deactivations: {
-        Args: never
-        Returns: {
-          deactivated_at: string
-          email: string
-          name: string | null
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }[]
-      }
       complete_registration: {
         Args: { _profile: Json }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -374,6 +361,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      create_profile: {
+        Args: {
+          _fallback_name: string
+          _meta: Json
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
       create_surplus_post: {
         Args: {
           _food_description: string
@@ -383,6 +379,7 @@ export type Database = {
         }
         Returns: string
       }
+      deactivate_account: { Args: { _user_id: string }; Returns: undefined }
       distance_km: {
         Args: { lat1: number; lat2: number; lng1: number; lng2: number }
         Returns: number
@@ -398,40 +395,74 @@ export type Database = {
         Args: never
         Returns: {
           active: boolean
-          address: string | null
+          address: string
           approved: boolean
-          area: string | null
+          area: string
           created_at: string
+          deactivated_at: string
+          deactivated_by_self: boolean
           email: string
-          name: string | null
-          org: string | null
-          phone: string | null
-          deactivated_at: string | null
-          deactivated_by_self: boolean | null
+          name: string
           open_tasks: number
-          profile_id: string | null
+          org: string
+          phone: string
+          profile_id: string
           role: Database["public"]["Enums"]["app_role"]
-          source_type: Database["public"]["Enums"]["source_type"] | null
+          source_type: Database["public"]["Enums"]["source_type"]
           user_id: string
+        }[]
+      }
+      my_account: {
+        Args: never
+        Returns: {
+          active: boolean
+          approved: boolean
+          name: string
+          role: Database["public"]["Enums"]["app_role"]
         }[]
       }
       my_source_posts: {
         Args: never
         Returns: {
-          assigned_at: string | null
+          assigned_at: string
           created_at: string
-          delivered_at: string | null
+          delivered_at: string
           food_description: string
           id: string
-          picked_up_at: string | null
+          picked_up_at: string
           pickup_location: string
           quantity: string
           ready_time: string
           status: string
         }[]
       }
+      open_task_count: { Args: { _user_id: string }; Returns: number }
       promote_to_coordinator: { Args: { _user_id: string }; Returns: undefined }
+      reactivate_account: { Args: { _user_id: string }; Returns: undefined }
+      recent_self_deactivations: {
+        Args: never
+        Returns: {
+          deactivated_at: string
+          email: string
+          name: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
+      register_user: {
+        Args: {
+          _email: string
+          _meta: Json
+          _pre_approved: boolean
+          _user_id: string
+        }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       same_area: { Args: { a: string; b: string }; Returns: boolean }
+      set_account_active: {
+        Args: { _active: boolean; _user_id: string }
+        Returns: undefined
+      }
       worker_advance: {
         Args: { _next: string; _post_id: string }
         Returns: undefined
@@ -440,14 +471,14 @@ export type Database = {
       worker_open_pool: {
         Args: never
         Returns: {
-          approx_distance_km: number | null
-          area: string | null
+          approx_distance_km: number
+          area: string
           created_at: string
-          delivery_area: string | null
+          delivery_area: string
           food_description: string
           id: string
-          pickup_lat: number | null
-          pickup_lng: number | null
+          pickup_lat: number
+          pickup_lng: number
           pickup_location: string
           quantity: string
           ready_time: string
@@ -457,20 +488,20 @@ export type Database = {
       worker_tasks: {
         Args: never
         Returns: {
-          assigned_at: string | null
-          claim_mode: string | null
+          assigned_at: string
+          claim_mode: string
           created_at: string
-          delivered_at: string | null
-          delivery_area: string | null
-          delivery_destination: string | null
-          delivery_lat: number | null
-          delivery_lng: number | null
+          delivered_at: string
+          delivery_area: string
+          delivery_destination: string
+          delivery_lat: number
+          delivery_lng: number
           food_description: string
           id: string
           is_confidential: boolean
-          picked_up_at: string | null
-          pickup_lat: number | null
-          pickup_lng: number | null
+          picked_up_at: string
+          pickup_lat: number
+          pickup_lng: number
           pickup_location: string
           quantity: string
           ready_time: string
