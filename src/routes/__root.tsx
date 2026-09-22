@@ -118,11 +118,38 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Supabase sends the user back from Google to whichever URL its auth settings
+ * allow — which falls back to the project's Site URL ("/") when the origin the
+ * user signed in from was never registered. Only /auth builds the Supabase
+ * client, so on any other route the tokens would sit unread in the URL and the
+ * sign-in would quietly do nothing. Hand them to /auth instead.
+ */
+function OAuthCallbackRelay() {
+  useEffect(() => {
+    if (window.location.pathname.replace(/\/$/, "") === "/auth") return;
+    const hash = window.location.hash.slice(1);
+    const search = window.location.search.slice(1);
+    // Implicit flow returns #access_token=..., PKCE returns ?code=...,
+    // and either can come back as an error instead.
+    const carriesAuth =
+      /(^|&)(access_token|error_description)=/.test(hash) ||
+      /(^|&)(code|error_description)=/.test(search);
+    if (!carriesAuth) return;
+    // A full navigation, not a router push: the client reads the URL once, when
+    // it is first constructed, so the tokens must already be there.
+    window.location.replace(`/auth${window.location.search}${window.location.hash}`);
+  }, []);
+
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
+      <OAuthCallbackRelay />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster position="top-center" dir="rtl" />

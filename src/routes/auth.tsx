@@ -49,10 +49,25 @@ function goHome(account: MyAccount, navigate: ReturnType<typeof useNavigate>) {
   navigate({ to: "/pending" });
 }
 
+/** Reads a failed OAuth redirect (#error_description=... or ?error_description=...). */
+function readOAuthError() {
+  if (typeof window === "undefined") return null;
+  const hash = new URLSearchParams(window.location.hash.slice(1));
+  const search = new URLSearchParams(window.location.search);
+  return hash.get("error_description") ?? search.get("error_description");
+}
+
 function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const navigate = useNavigate();
   const { session, ready } = useSession();
+  // Read during the first render: supabase-js strips these params from the URL
+  // as soon as the client is built, which happens in the effects below.
+  const [oauthError] = useState(readOAuthError);
+
+  useEffect(() => {
+    if (oauthError) toast.error(`تعذّر الدخول عبر Google: ${oauthError}`);
+  }, [oauthError]);
 
   // Google sends the user back here; supabase-js reads the session out of the
   // URL, and this moves them on to the right screen.
