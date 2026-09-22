@@ -206,6 +206,7 @@ export type Database = {
         Row: {
           area: string | null
           assigned_at: string | null
+          available_until: string
           claim_mode: string | null
           coordinator_id: string | null
           created_at: string
@@ -232,6 +233,7 @@ export type Database = {
         Insert: {
           area?: string | null
           assigned_at?: string | null
+          available_until: string
           claim_mode?: string | null
           coordinator_id?: string | null
           created_at?: string
@@ -258,6 +260,7 @@ export type Database = {
         Update: {
           area?: string | null
           assigned_at?: string | null
+          available_until?: string
           claim_mode?: string | null
           coordinator_id?: string | null
           created_at?: string
@@ -372,6 +375,7 @@ export type Database = {
       }
       create_surplus_post: {
         Args: {
+          _available_until?: string
           _food_description: string
           _pickup_location: string
           _quantity: string
@@ -425,6 +429,7 @@ export type Database = {
         Args: never
         Returns: {
           assigned_at: string
+          available_until: string
           created_at: string
           delivered_at: string
           food_description: string
@@ -473,6 +478,7 @@ export type Database = {
         Returns: {
           approx_distance_km: number
           area: string
+          available_until: string
           created_at: string
           delivery_area: string
           food_description: string
@@ -483,12 +489,14 @@ export type Database = {
           quantity: string
           ready_time: string
           restaurant_name: string
+          source_type: Database["public"]["Enums"]["source_type"]
         }[]
       }
       worker_tasks: {
         Args: never
         Returns: {
           assigned_at: string
+          available_until: string
           claim_mode: string
           created_at: string
           delivered_at: string
@@ -506,6 +514,7 @@ export type Database = {
           quantity: string
           ready_time: string
           restaurant_name: string
+          source_type: Database["public"]["Enums"]["source_type"]
           status: string
         }[]
       }

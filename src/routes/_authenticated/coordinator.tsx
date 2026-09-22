@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { PickupWindowFact, PostHeader, SourceFact } from "@/components/PostFacts";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ import {
   formatTime,
   type ClaimMode,
   type Family,
+  type SourceType,
   type SurplusPost,
 } from "@/lib/pilot";
 
@@ -97,10 +99,10 @@ function CoordinatorPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("surplus_posts")
-        .select(POST_COLUMNS)
+        .select(`${POST_COLUMNS},source:food_sources(type)`)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as unknown as SurplusPost[];
+      return data as unknown as (SurplusPost & { source: { type: SourceType } | null })[];
     },
   });
 
@@ -285,17 +287,20 @@ function CoordinatorPage() {
                 className="w-full p-4 text-start"
                 onClick={() => setOpenId(isOpen ? null : post.id)}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-bold leading-snug">{post.food_description}</p>
-                  <StatusBadge status={post.status} />
+                <PostHeader
+                  food={post.food_description}
+                  quantity={post.quantity}
+                  badge={<StatusBadge status={post.status} />}
+                />
+                <div className="mt-3 mb-1 space-y-1">
+                  <PickupWindowFact ready={post.ready_time} until={post.available_until} />
+                  <SourceFact
+                    name={post.restaurant_name}
+                    type={post.source?.type}
+                    location={post.pickup_location}
+                    area={post.area}
+                  />
                 </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {post.quantity} · جاهز {formatTime(post.ready_time)}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {post.restaurant_name} — {post.pickup_location}
-                  {post.area ? ` · ${post.area}` : ""}
-                </p>
                 {post.family_id ? (
                   <p className="mt-1 text-sm font-bold text-primary">
                     الأسرة: {familyName(post.family_id)}

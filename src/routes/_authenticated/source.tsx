@@ -6,7 +6,9 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
 import { LocationInput, readLocation } from "@/components/LocationInput";
+import { PickupWindowFact, PostHeader } from "@/components/PostFacts";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useSuccessOverlay } from "@/components/SuccessOverlay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +18,7 @@ import {
   SOURCE_TYPE_LABEL,
   errorMessage,
   formatTime,
+  toIsoAfter,
   toIsoFromTime,
   type FoodSource,
   type Status,
@@ -50,6 +53,7 @@ function SourcePage() {
   const [open, setOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const queryClient = useQueryClient();
+  const { confirm, overlay } = useSuccessOverlay();
 
   const { data: source, isPending } = useQuery({
     queryKey: ["my-source"],
@@ -81,18 +85,24 @@ function SourcePage() {
       food_description: string;
       quantity: string;
       ready_time: string;
+      available_until: string;
       pickup_location: string;
     }) => {
+      const readyIso = toIsoFromTime(form.ready_time);
       const { error } = await supabase.rpc("create_surplus_post", {
         _food_description: form.food_description,
         _quantity: form.quantity,
-        _ready_time: toIsoFromTime(form.ready_time),
+        _ready_time: readyIso,
         _pickup_location: form.pickup_location,
+        // Left blank → the database uses ready time + 1 hour.
+        ...(form.available_until
+          ? { _available_until: toIsoAfter(form.available_until, readyIso) }
+          : {}),
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("تم نشر الفائض");
+      confirm("تم نشر الفائض", "سيوزّعه المنسّق — تابع حالته في «إعلاناتي»");
       setOpen(false);
       queryClient.invalidateQueries({ queryKey: ["source-posts"] });
     },
@@ -143,6 +153,7 @@ function SourcePage() {
               food_description: String(fd.get("food_description") ?? ""),
               quantity: String(fd.get("quantity") ?? ""),
               ready_time: String(fd.get("ready_time") ?? ""),
+              available_until: String(fd.get("available_until") ?? ""),
               pickup_location: String(fd.get("pickup_location") ?? ""),
             });
           }}
@@ -161,10 +172,19 @@ function SourcePage() {
             <Label htmlFor="quantity">الكمية (تقديرية)</Label>
             <Input id="quantity" name="quantity" required placeholder="مثال: 20 حصة" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="ready_time">وقت الجهوزية للاستلام</Label>
-            <Input id="ready_time" name="ready_time" type="time" required />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="ready_time">جاهز للاستلام من</Label>
+              <Input id="ready_time" name="ready_time" type="time" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="available_until">متاح حتى (اختياري)</Label>
+              <Input id="available_until" name="available_until" type="time" />
+            </div>
           </div>
+          <p className="-mt-2 text-xs text-muted-foreground">
+            إذا تركت «متاح حتى» فارغًا، تكون فترة الاستلام ساعة واحدة.
+          </p>
           <div className="space-y-2">
             <Label htmlFor="pickup_location">موقع الاستلام</Label>
             <Input
@@ -205,15 +225,16 @@ function SourcePage() {
       <ul className="space-y-3">
         {posts.map((post) => (
           <li key={post.id} className="card-surface p-4">
-            <div className="flex items-start justify-between gap-3">
-              <p className="font-bold leading-snug">{post.food_description}</p>
-              <StatusBadge status={post.status as Status} />
+            <PostHeader
+              food={post.food_description}
+              quantity={post.quantity}
+              badge={<StatusBadge status={post.status as Status} />}
+            />
+            <div className="mt-3">
+              <PickupWindowFact ready={post.ready_time} until={post.available_until} />
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {post.quantity} · جاهز {formatTime(post.ready_time)}
-            </p>
             {post.picked_up_at ? (
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                 استُلم {formatTime(post.picked_up_at)}
                 {post.delivered_at ? ` · وُصّل ${formatTime(post.delivered_at)}` : ""}
               </p>
@@ -224,6 +245,7 @@ function SourcePage() {
           <li className="text-sm text-muted-foreground">لا توجد إعلانات بعد.</li>
         ) : null}
       </ul>
+      {overlay}
     </AppShell>
   );
 }

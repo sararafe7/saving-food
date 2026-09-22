@@ -78,6 +78,7 @@ export type SurplusPost = {
   food_description: string;
   quantity: string;
   ready_time: string;
+  available_until: string;
   pickup_location: string;
   status: Status;
   source_id: string | null;
@@ -96,7 +97,7 @@ export type SurplusPost = {
 };
 
 export const POST_COLUMNS =
-  "id,restaurant_name,food_description,quantity,ready_time,pickup_location,status,source_id,family_id,worker_id,coordinator_id,delivery_destination,delivery_area,is_confidential,claim_mode,area,created_at,assigned_at,picked_up_at,delivered_at";
+  "id,restaurant_name,food_description,quantity,ready_time,available_until,pickup_location,status,source_id,family_id,worker_id,coordinator_id,delivery_destination,delivery_area,is_confidential,claim_mode,area,created_at,assigned_at,picked_up_at,delivered_at";
 
 export function formatTime(iso: string | null) {
   if (!iso) return "—";
@@ -114,6 +115,34 @@ export function toIsoFromTime(value: string) {
   d.setHours(h ?? 0, m ?? 0, 0, 0);
   if (d.getTime() < Date.now() - 60_000) d.setDate(d.getDate() + 1);
   return d.toISOString();
+}
+
+/** The source's "available until" time, placed on the first moment after the ready time. */
+export function toIsoAfter(value: string, afterIso: string) {
+  const [h, m] = value.split(":").map(Number);
+  const after = new Date(afterIso);
+  const d = new Date(after);
+  d.setHours(h ?? 0, m ?? 0, 0, 0);
+  if (d.getTime() <= after.getTime()) d.setDate(d.getDate() + 1);
+  return d.toISOString();
+}
+
+function dayLabel(date: Date) {
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diff = Math.round((startOfDay(date) - startOfDay(new Date())) / 86_400_000);
+  if (diff === 0) return "اليوم";
+  if (diff === 1) return "غدًا";
+  if (diff === -1) return "أمس";
+  return date.toLocaleDateString("ar", { day: "numeric", month: "short" });
+}
+
+const timeFormat = new Intl.DateTimeFormat("ar", { hour: "numeric", minute: "2-digit" });
+
+/** "اليوم 3:30–4:30 م". Older reports without an end time get the default one-hour window. */
+export function formatPickupWindow(readyIso: string, untilIso: string | null | undefined) {
+  const start = new Date(readyIso);
+  const end = untilIso ? new Date(untilIso) : new Date(start.getTime() + 3_600_000);
+  return `${dayLabel(start)} ${timeFormat.formatRange(start, end)}`;
 }
 
 export type LatLng = { lat: number; lng: number };

@@ -10,12 +10,15 @@ import {
   Route as RouteIcon,
   ShieldCheck,
   UserCog,
+  type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
+import { Fact, PickupWindowFact, PostHeader, SourceFact } from "@/components/PostFacts";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useSuccessOverlay } from "@/components/SuccessOverlay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +29,9 @@ import {
   distanceKm,
   errorMessage,
   formatApproxKm,
+  formatPickupWindow,
   formatTime,
+  SOURCE_TYPE_LABEL,
   type DeliveryWorker,
   type LatLng,
   type Status,
@@ -70,6 +75,7 @@ function WorkerPage() {
   const [tab, setTab] = useState<"tasks" | "pool">("tasks");
   const [editingProfile, setEditingProfile] = useState(false);
   const [myPosition, setMyPosition] = useState<LatLng | null>(null);
+  const { confirm, overlay } = useSuccessOverlay();
 
   const { data: worker, isPending } = useQuery({
     queryKey: ["my-worker"],
@@ -117,7 +123,7 @@ function WorkerPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("تم حجز المهمة — تجدها في «مهامي»");
+      confirm("تم حجز المهمة", "العنوان الكامل ظاهر الآن في «مهامي»");
       setTab("tasks");
       refresh();
     },
@@ -133,7 +139,11 @@ function WorkerPage() {
       if (error) throw error;
     },
     onSuccess: (_d, vars) => {
-      toast.success(vars.next === "picked_up" ? "تم تسجيل الاستلام" : "تم تسجيل التوصيل");
+      if (vars.next === "picked_up") {
+        confirm("تم تسجيل الاستلام", "اضغط «تم التوصيل» عند تسليم الطعام");
+      } else {
+        confirm("تم تسجيل التوصيل", "شكرًا لك!");
+      }
       refresh();
     },
     onError: (error) => {
@@ -214,6 +224,7 @@ function WorkerPage() {
               key={task.id}
               task={task}
               pending={advance.isPending}
+              busy={advance.isPending && advance.variables?.postId === task.id}
               onAdvance={(next) => advance.mutate({ postId: task.id, next })}
             />
           ))}
@@ -242,6 +253,7 @@ function WorkerPage() {
                 item={item}
                 myPosition={myPosition}
                 pending={claim.isPending}
+                busy={claim.isPending && claim.variables === item.id}
                 onClaim={() => claim.mutate(item.id)}
               />
             ))}
@@ -251,6 +263,7 @@ function WorkerPage() {
           </ul>
         </>
       )}
+      {overlay}
     </AppShell>
   );
 }
@@ -259,11 +272,13 @@ function PoolCard({
   item,
   myPosition,
   pending,
+  busy,
   onClaim,
 }: {
   item: PoolItem;
   myPosition: LatLng | null;
   pending: boolean;
+  busy: boolean;
   onClaim: () => void;
 }) {
   const toPickup =
@@ -274,41 +289,77 @@ function PoolCard({
 
   return (
     <li className="card-surface p-4">
-      <p className="font-bold leading-snug">{item.food_description}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{item.quantity}</p>
-      <p className="mt-2 flex items-center gap-2 text-sm">
-        <MapPin className="size-4 shrink-0 text-primary" />
-        الاستلام: {item.restaurant_name} — {item.pickup_location}
-      </p>
-      <p className="mt-1 flex items-center gap-2 text-sm">
-        <Clock className="size-4 shrink-0 text-primary" />
-        جاهز {formatTime(item.ready_time)}
-      </p>
-      <p className="mt-1 flex items-center gap-2 text-sm">
-        <Navigation className="size-4 shrink-0 text-primary" />
-        التوصيل إلى: {item.delivery_area ?? "حي غير محدد"}
-      </p>
-      <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-        <RouteIcon className="size-4 shrink-0" />
-        {trip ? `مسافة الرحلة ${trip}` : "مسافة الرحلة غير متوفرة"}
-        {toPickup ? ` · تبعد عنك ${toPickup}` : ""}
-      </p>
-      <p className="mt-2 text-xs text-muted-foreground">يظهر العنوان الدقيق بعد الحجز.</p>
+      <PostHeader
+        food={item.food_description}
+        quantity={item.quantity}
+        badge={<StatusBadge status="posted" />}
+      />
+
+      {/* What a worker scans to decide: when, which neighborhood, how far. */}
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <PoolStat icon={Clock} label="الاستلام">
+          {formatPickupWindow(item.ready_time, item.available_until)}
+        </PoolStat>
+        <PoolStat icon={Navigation} label="التوصيل إلى">
+          {item.delivery_area ?? "حي غير محدد"}
+        </PoolStat>
+        <PoolStat icon={RouteIcon} label="مسافة الرحلة">
+          {trip ?? "غير متوفرة"}
+        </PoolStat>
+      </div>
+
+      <div className="mt-3 space-y-1">
+        <SourceFact
+          name={item.restaurant_name}
+          type={item.source_type}
+          location={item.pickup_location}
+          area={item.area}
+        />
+        {toPickup ? (
+          <Fact icon={MapPin} muted>
+            يبعد عنك {toPickup}
+          </Fact>
+        ) : null}
+      </div>
+
+      <p className="mt-2 text-xs text-muted-foreground">يظهر عنوان التوصيل الدقيق بعد الحجز.</p>
       <Button size="lg" className="mt-3 h-12 w-full" disabled={pending} onClick={onClaim}>
         <Hand className="size-5" />
-        احجز هذه المهمة
+        {busy ? "جارٍ الحجز..." : "احجز هذه المهمة"}
       </Button>
     </li>
+  );
+}
+
+function PoolStat({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: LucideIcon;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="min-w-0 rounded-xl bg-secondary/60 p-2">
+      <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+        <Icon className="size-3.5 shrink-0 text-primary" aria-hidden />
+        {label}
+      </p>
+      <p className="mt-0.5 text-sm font-bold leading-snug">{children}</p>
+    </div>
   );
 }
 
 function TaskCard({
   task,
   pending,
+  busy,
   onAdvance,
 }: {
   task: Task;
   pending: boolean;
+  busy: boolean;
   onAdvance: (next: "picked_up" | "delivered") => void;
 }) {
   const pickupMap = mapsLink(task.pickup_lat, task.pickup_lng);
@@ -316,27 +367,33 @@ function TaskCard({
 
   return (
     <li className="card-surface p-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="font-bold leading-snug">{task.food_description}</p>
-        <StatusBadge status={task.status as Status} />
+      <PostHeader
+        food={task.food_description}
+        quantity={task.quantity}
+        badge={<StatusBadge status={task.status as Status} />}
+      />
+      <div className="mt-3 space-y-1">
+        <PickupWindowFact ready={task.ready_time} until={task.available_until} />
+        <Fact icon={MapPin}>
+          <span className="font-bold">{task.restaurant_name}</span>
+          {task.source_type ? (
+            <span className="text-muted-foreground"> · {SOURCE_TYPE_LABEL[task.source_type]}</span>
+          ) : null}
+          <span className="block">
+            {task.pickup_location}
+            {pickupMap ? <MapLink href={pickupMap} /> : null}
+          </span>
+        </Fact>
+        {task.delivery_destination ? (
+          <Fact icon={Navigation}>
+            <span className="text-muted-foreground">
+              {task.is_confidential ? "نقطة اللقاء" : "عنوان التوصيل"}:{" "}
+            </span>
+            {task.delivery_destination}
+            {deliveryMap ? <MapLink href={deliveryMap} /> : null}
+          </Fact>
+        ) : null}
       </div>
-      <p className="mt-2 text-sm text-muted-foreground">{task.quantity}</p>
-      <p className="mt-2 flex items-center gap-2 text-sm">
-        <MapPin className="size-4 shrink-0 text-primary" />
-        الاستلام: {task.restaurant_name} — {task.pickup_location}
-        {pickupMap ? <MapLink href={pickupMap} /> : null}
-      </p>
-      <p className="mt-1 flex items-center gap-2 text-sm">
-        <Clock className="size-4 shrink-0 text-primary" />
-        جاهز {formatTime(task.ready_time)}
-      </p>
-      {task.delivery_destination ? (
-        <p className="mt-1 flex items-center gap-2 text-sm">
-          <Navigation className="size-4 shrink-0 text-primary" />
-          {task.is_confidential ? "نقطة اللقاء" : "عنوان التوصيل"}: {task.delivery_destination}
-          {deliveryMap ? <MapLink href={deliveryMap} /> : null}
-        </p>
-      ) : null}
       {task.is_confidential ? (
         <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-bold text-secondary-foreground">
           <ShieldCheck className="size-3.5" /> حالة سرّية — التسليم في نقطة اللقاء فقط
@@ -350,7 +407,7 @@ function TaskCard({
           disabled={pending}
           onClick={() => onAdvance("picked_up")}
         >
-          استلمت الطعام
+          {busy ? "جارٍ التسجيل..." : "استلمت الطعام"}
         </Button>
       ) : null}
       {task.status === "picked_up" ? (
@@ -364,7 +421,7 @@ function TaskCard({
             disabled={pending}
             onClick={() => onAdvance("delivered")}
           >
-            تم التوصيل
+            {busy ? "جارٍ التسجيل..." : "تم التوصيل"}
           </Button>
         </>
       ) : null}
@@ -384,7 +441,7 @@ function MapLink({ href }: { href: string }) {
       target="_blank"
       rel="noreferrer"
       aria-label="فتح في الخريطة"
-      className="inline-flex shrink-0 items-center text-primary"
+      className="ms-1 inline-flex shrink-0 items-center align-middle text-primary"
     >
       <ExternalLink className="size-4" />
     </a>
