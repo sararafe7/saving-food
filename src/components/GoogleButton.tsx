@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { authErrorMessage } from "@/lib/pilot";
 
 /**
@@ -27,15 +27,17 @@ export function GoogleButton({ label }: { label: string }) {
       disabled={pending}
       onClick={async () => {
         setPending(true);
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: { redirectTo: `${window.location.origin}/auth` },
+        const result = await lovable.auth.signInWithOAuth("google", {
+          redirect_uri: `${window.location.origin}/auth`,
         });
-        // On success the browser leaves for Google, so this only runs on failure.
-        if (error) {
+        if (result.error) {
           setPending(false);
-          toast.error(authErrorMessage(error, "تعذّر الدخول عبر Google"));
+          toast.error(authErrorMessage(result.error, "تعذّر الدخول عبر Google"));
+          return;
         }
+        // Either the browser leaves for Google, or the session is already set
+        // and /auth routes the user onward.
+        if (!result.redirected) window.location.href = "/auth";
       }}
     >
       <GoogleMark />
