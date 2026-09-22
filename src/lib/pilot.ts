@@ -171,3 +171,51 @@ export function errorMessage(error: unknown, fallback: string) {
   }
   return fallback;
 }
+
+/**
+ * Supabase Auth answers in English. Without this everything collapsed into one
+ * unhelpful "تعذّر إنشاء الحساب", so sign-up failures name their cause instead.
+ * A trigger that raises inside the database always arrives as the opaque
+ * "Database error saving new user" — its Arabic text never reaches the browser.
+ */
+export function authErrorMessage(error: unknown, fallback: string) {
+  if (!error || typeof error !== "object") return fallback;
+  const code = "code" in error ? String((error as { code: unknown }).code ?? "") : "";
+  const raw = "message" in error ? String((error as { message: unknown }).message ?? "") : "";
+  if (/[؀-ۿ]/.test(raw)) return raw;
+  const message = raw.toLowerCase();
+
+  if (
+    code === "user_already_exists" ||
+    code === "email_exists" ||
+    message.includes("already registered")
+  ) {
+    return "هذا البريد مسجّل بالفعل — ادخل من تبويب «دخول» أو استخدم بريدًا آخر";
+  }
+  if (
+    code.startsWith("over_") ||
+    message.includes("rate limit") ||
+    message.includes("you can only request this after")
+  ) {
+    return "تم تجاوز عدد المحاولات المسموح بها — انتظر قليلًا ثم أعد المحاولة";
+  }
+  if (code === "weak_password" || message.includes("password should be")) {
+    return "كلمة المرور ضعيفة — استخدم 8 أحرف على الأقل مع أرقام";
+  }
+  if (code === "signup_disabled" || message.includes("signups not allowed")) {
+    return "التسجيل الذاتي موقوف حاليًا — تواصل مع أحد المنسّقين لإنشاء حسابك";
+  }
+  if (code === "email_address_invalid" || message.includes("invalid email")) {
+    return "البريد الإلكتروني غير صالح";
+  }
+  if (message.includes("database error")) {
+    return "تعذّر إنشاء الحساب بسبب خطأ في قاعدة البيانات — تأكد من تشغيل ملفات الترحيل في Supabase";
+  }
+  if (message.includes("failed to fetch") || message.includes("networkerror")) {
+    return "تعذّر الاتصال بالخادم — تحقّق من اتصالك بالإنترنت";
+  }
+  if (message.includes("missing supabase environment")) {
+    return "إعدادات Supabase ناقصة في هذه النسخة من التطبيق";
+  }
+  return fallback;
+}

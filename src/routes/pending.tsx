@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Hourglass } from "lucide-react";
+import { Hourglass, UserX } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -37,7 +37,9 @@ function PendingPage() {
   });
 
   useEffect(() => {
-    if (account.data?.approved) window.location.href = ROLE_HOME[account.data.role];
+    if (account.data?.approved && account.data.active) {
+      window.location.href = ROLE_HOME[account.data.role];
+    }
   }, [account.data]);
 
   if (!ready || (user && account.isPending)) {
@@ -60,7 +62,26 @@ function PendingPage() {
   }
 
   if (!account.data) {
-    return <CompleteRegistration onDone={() => account.refetch()} />;
+    return (
+      <CompleteRegistration suggestedName={suggestedName(user)} onDone={() => account.refetch()} />
+    );
+  }
+
+  if (!account.data.active) {
+    return (
+      <AppShell title="الحساب معطّل" showSignOut>
+        <div className="card-surface flex flex-col items-center gap-3 p-6 text-center">
+          <span className="inline-flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <UserX className="size-7" />
+          </span>
+          <p className="font-bold">هذا الحساب معطّل</p>
+          <p className="text-sm text-muted-foreground">
+            لم تُحذف بياناتك ولا سجلّ مهامك السابقة، لكن لا يمكن استخدام الحساب وهو معطّل. تواصل مع
+            أحد المنسّقين لإعادة تفعيله.
+          </p>
+        </div>
+      </AppShell>
+    );
   }
 
   return (
@@ -81,8 +102,27 @@ function PendingPage() {
   );
 }
 
-/** For accounts that exist in auth but never got a role (e.g. created before sign-up moved to the database). */
-function CompleteRegistration({ onDone }: { onDone: () => void }) {
+/** Google gives us a display name; fall back to the part of the e-mail before the @. */
+function suggestedName(user: { email?: string; user_metadata?: Record<string, unknown> } | null) {
+  const meta = user?.user_metadata ?? {};
+  const fromGoogle = meta["full_name"] ?? meta["name"];
+  if (typeof fromGoogle === "string" && fromGoogle.trim()) return fromGoogle.trim();
+  return user?.email?.split("@")[0] ?? "";
+}
+
+/**
+ * The profile step for any account that exists in auth but has no role yet:
+ * a first Google sign-in (Google only supplies a name and an e-mail), or an
+ * account created before sign-up moved into the database. It collects the same
+ * role-specific fields as the e-mail sign-up form, then waits for approval.
+ */
+function CompleteRegistration({
+  suggestedName: initialName,
+  onDone,
+}: {
+  suggestedName: string;
+  onDone: () => void;
+}) {
   const [role, setRole] = useState<AppRole>("source");
 
   const complete = useMutation({
@@ -99,9 +139,9 @@ function CompleteRegistration({ onDone }: { onDone: () => void }) {
   });
 
   return (
-    <AppShell title="استكمال التسجيل" showSignOut>
+    <AppShell title="أكمل بيانات حسابك" showSignOut>
       <p className="mb-4 text-sm text-muted-foreground">
-        أكمل بيانات حسابك ليراجعها أحد المنسّقين.
+        اختر نوع حسابك وأكمل بياناته ليراجعها أحد المنسّقين. يُفعَّل الحساب بعد الموافقة.
       </p>
       <form
         className="card-surface space-y-4 p-5"
@@ -111,7 +151,7 @@ function CompleteRegistration({ onDone }: { onDone: () => void }) {
         }}
       >
         <RoleSelect value={role} onChange={setRole} />
-        <AccountFields key={role} role={role} idPrefix="complete" />
+        <AccountFields key={role} role={role} idPrefix="complete" defaultName={initialName} />
         <Button type="submit" size="lg" className="w-full" disabled={complete.isPending}>
           إرسال
         </Button>

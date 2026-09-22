@@ -122,6 +122,7 @@ function SourcePage() {
       title={source.name}
       subtitle={`${SOURCE_TYPE_LABEL[source.type]} · ${source.address}`}
       showSignOut
+      showSettings
       backTo={null}
     >
       {!source.phone || !source.area ? (

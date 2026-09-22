@@ -338,6 +338,28 @@ export type Database = {
     }
     Functions: {
       approve_account: { Args: { _user_id: string }; Returns: undefined }
+      deactivate_account: { Args: { _user_id: string }; Returns: undefined }
+      reactivate_account: { Args: { _user_id: string }; Returns: undefined }
+      open_task_count: { Args: { _user_id: string }; Returns: number }
+      my_account: {
+        Args: never
+        Returns: {
+          active: boolean
+          approved: boolean
+          name: string | null
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
+      recent_self_deactivations: {
+        Args: never
+        Returns: {
+          deactivated_at: string
+          email: string
+          name: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
       complete_registration: {
         Args: { _profile: Json }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -384,6 +406,9 @@ export type Database = {
           name: string | null
           org: string | null
           phone: string | null
+          deactivated_at: string | null
+          deactivated_by_self: boolean | null
+          open_tasks: number
           profile_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           source_type: Database["public"]["Enums"]["source_type"] | null

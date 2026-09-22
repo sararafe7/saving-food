@@ -1,16 +1,17 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AccountFields, RoleSelect, readAccountProfile } from "@/components/AccountFields";
 import { AppShell } from "@/components/AppShell";
+import { GoogleButton } from "@/components/GoogleButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { fetchMyAccount, type MyAccount } from "@/hooks/useAuth";
+import { fetchMyAccount, useSession, type MyAccount } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { ROLE_HOME, errorMessage, type AppRole } from "@/lib/pilot";
+import { ROLE_HOME, authErrorMessage, type AppRole } from "@/lib/pilot";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -35,8 +36,13 @@ export const Route = createFileRoute("/auth")({
   ),
 });
 
+/**
+ * /pending covers every state that is not "ready to work": waiting for a
+ * coordinator's approval, deactivated, or — after a first Google sign-in —
+ * still missing a role and profile.
+ */
 function goHome(account: MyAccount, navigate: ReturnType<typeof useNavigate>) {
-  if (account?.approved) {
+  if (account?.approved && account.active) {
     window.location.href = ROLE_HOME[account.role];
     return;
   }
@@ -45,6 +51,25 @@ function goHome(account: MyAccount, navigate: ReturnType<typeof useNavigate>) {
 
 function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const navigate = useNavigate();
+  const { session, ready } = useSession();
+
+  // Google sends the user back here; supabase-js reads the session out of the
+  // URL, and this moves them on to the right screen.
+  useEffect(() => {
+    if (!ready || !session) return;
+    fetchMyAccount()
+      .then((account) => goHome(account, navigate))
+      .catch(() => navigate({ to: "/pending" }));
+  }, [ready, session, navigate]);
+
+  if (ready && session) {
+    return (
+      <AppShell title="الدخول إلى المنصة" subtitle="تنسيق فائض الطعام">
+        <p className="text-sm text-muted-foreground">جارٍ الدخول...</p>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title="الدخول إلى المنصة" subtitle="تنسيق فائض الطعام">
@@ -64,6 +89,21 @@ function AuthPage() {
           حساب جديد
         </button>
       </div>
+
+      <div className="card-surface mb-4 space-y-3 p-5">
+        <GoogleButton label={mode === "signin" ? "الدخول بحساب Google" : "المتابعة بحساب Google"} />
+        <p className="text-xs text-muted-foreground">
+          {mode === "signin"
+            ? "إن كانت هذه أول مرة، ستُكمل بيانات حسابك بعد الدخول."
+            : "بعد الدخول ستختار نوع الحساب وتكمل بياناته، ثم ينتظر موافقة أحد المنسّقين."}
+        </p>
+        <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground">
+          <span className="h-px flex-1 bg-border" />
+          أو بالبريد الإلكتروني
+          <span className="h-px flex-1 bg-border" />
+        </div>
+      </div>
+
       {mode === "signin" ? <SignIn /> : <SignUp />}
     </AppShell>
   );
@@ -151,7 +191,7 @@ function SignUp() {
       toast.success("تم إنشاء الحساب");
       goHome(result.account, navigate);
     },
-    onError: (error) => toast.error(errorMessage(error, "تعذّر إنشاء الحساب")),
+    onError: (error) => toast.error(authErrorMessage(error, "تعذّر إنشاء الحساب")),
   });
 
   return (

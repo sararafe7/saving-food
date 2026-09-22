@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ShieldCheck, StickyNote, UserCheck, Users } from "lucide-react";
+import { ShieldCheck, StickyNote, UserCheck, Users, UserX } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   FAMILY_COLUMNS,
   POST_COLUMNS,
+  ROLE_LABEL,
   errorMessage,
   formatTime,
   type ClaimMode,
@@ -117,6 +118,18 @@ function CoordinatorPage() {
   const availableWorkers = allWorkers.filter((a) => a.approved && a.active);
   const pendingAccounts = accounts.filter((a) => !a.approved).length;
 
+  // Accounts that switched themselves off in the last 30 days. Nobody is
+  // e-mailed about it, so the dashboard is where coordinators find out.
+  const { data: selfDeactivations = [] } = useQuery({
+    queryKey: ["self-deactivations"],
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("recent_self_deactivations");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const { data: notes = {} } = useQuery({
     queryKey: ["post-notes"],
     refetchInterval: 30_000,
@@ -186,6 +199,7 @@ function CoordinatorPage() {
       title={me?.name ? `لوحة ${me.name}` : "لوحة المنسّق"}
       subtitle={me?.org ?? "المنسّق"}
       showSignOut
+      showSettings
       backTo={null}
     >
       <div className="mb-5 grid grid-cols-2 gap-3">
@@ -221,6 +235,25 @@ function CoordinatorPage() {
           </span>
         </Link>
       </div>
+
+      {selfDeactivations.length > 0 ? (
+        <section className="mb-5">
+          <h2 className="mb-2 flex items-center gap-2 text-sm font-bold text-muted-foreground">
+            <UserX className="size-4 text-destructive" />
+            حسابات عطّلها أصحابها
+          </h2>
+          <ul className="space-y-2">
+            {selfDeactivations.map((item) => (
+              <li key={item.user_id} className="card-surface p-3">
+                <p className="text-sm font-bold">{item.name ?? item.email}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {ROLE_LABEL[item.role]} · عطّل حسابه بنفسه {formatTime(item.deactivated_at)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
         {FILTERS.map((f) => {

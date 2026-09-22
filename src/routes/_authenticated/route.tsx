@@ -20,8 +20,10 @@ export const Route = createFileRoute("/_authenticated")({
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
 
+    // /pending explains whichever of the three it is: no role yet, waiting for
+    // approval, or deactivated.
     const account = await fetchMyAccount();
-    if (!account || !account.approved) throw redirect({ to: "/pending" });
+    if (!account || !account.approved || !account.active) throw redirect({ to: "/pending" });
 
     const required = PAGE_ROLE[location.pathname.replace(/\/$/, "")];
     if (required && required !== account.role) throw redirect({ href: ROLE_HOME[account.role] });

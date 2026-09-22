@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpCircle, CheckCircle2, UserPlus } from "lucide-react";
+import { ArrowUpCircle, CheckCircle2, RotateCcw, UserPlus, UserX } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -13,7 +13,14 @@ import { Label } from "@/components/ui/label";
 import { useAccounts, type Account } from "@/hooks/useAccounts";
 import { supabase } from "@/integrations/supabase/client";
 import { createAccount } from "@/lib/accounts.functions";
-import { ROLE_LABEL, SOURCE_TYPE_LABEL, errorMessage, type AppRole } from "@/lib/pilot";
+import {
+  ROLE_LABEL,
+  SOURCE_TYPE_LABEL,
+  authErrorMessage,
+  errorMessage,
+  formatTime,
+  type AppRole,
+} from "@/lib/pilot";
 
 export const Route = createFileRoute("/_authenticated/accounts")({
   head: () => ({
@@ -66,6 +73,22 @@ function AccountsPage() {
       invalidate();
     },
     onError: (error) => toast.error(errorMessage(error, "تعذّرت الترقية")),
+  });
+
+  // Deactivation keeps the row and its history; it only removes the account's
+  // permissions. The database refuses it while the account has an open task.
+  const setActive = useMutation({
+    mutationFn: async ({ userId, active }: { userId: string; active: boolean }) => {
+      const { error } = await supabase.rpc(active ? "reactivate_account" : "deactivate_account", {
+        _user_id: userId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      toast.success(vars.active ? "تمت إعادة تفعيل الحساب" : "تم تعطيل الحساب");
+      invalidate();
+    },
+    onError: (error) => toast.error(errorMessage(error, "تعذّر تغيير حالة الحساب")),
   });
 
   const pending = accounts.filter((a) => !a.approved);
@@ -139,24 +162,59 @@ function AccountsPage() {
                 <li key={account.user_id} className="card-surface p-3">
                   <AccountSummary account={account} compact />
                   {role !== "coordinator" ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-2"
-                      disabled={promote.isPending}
-                      onClick={() => {
-                        if (
-                          confirm(
-                            `ترقية «${account.name ?? account.email}» إلى منسّق؟ سيفقد الحساب دوره الحالي (${ROLE_LABEL[role]}) ويستطيع رؤية بيانات جميع الأسر.`,
-                          )
-                        ) {
-                          promote.mutate(account.user_id);
-                        }
-                      }}
-                    >
-                      <ArrowUpCircle className="size-4" />
-                      ترقية إلى منسّق
-                    </Button>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {account.active ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={promote.isPending}
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `ترقية «${account.name ?? account.email}» إلى منسّق؟ سيفقد الحساب دوره الحالي (${ROLE_LABEL[role]}) ويستطيع رؤية بيانات جميع الأسر.`,
+                                )
+                              ) {
+                                promote.mutate(account.user_id);
+                              }
+                            }}
+                          >
+                            <ArrowUpCircle className="size-4" />
+                            ترقية إلى منسّق
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive"
+                            disabled={setActive.isPending || account.open_tasks > 0}
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `تعطيل حساب «${account.name ?? account.email}»؟ لن يتمكن من الدخول، ولن تُحذف بياناته ولا سجلّ مهامه.`,
+                                )
+                              ) {
+                                setActive.mutate({ userId: account.user_id, active: false });
+                              }
+                            }}
+                          >
+                            <UserX className="size-4" />
+                            تعطيل الحساب
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={setActive.isPending}
+                          onClick={() =>
+                            setActive.mutate({ userId: account.user_id, active: true })
+                          }
+                        >
+                          <RotateCcw className="size-4" />
+                          إعادة التفعيل
+                        </Button>
+                      )}
+                    </div>
                   ) : null}
                 </li>
               ))}
@@ -196,7 +254,18 @@ function AccountSummary({ account, compact = false }: { account: Account; compac
         <p className="mt-1 text-xs text-muted-foreground">{details.join(" · ")}</p>
       ) : null}
       {account.address ? <p className="text-xs text-muted-foreground">{account.address}</p> : null}
-      {!account.active ? <p className="mt-1 text-xs font-bold text-destructive">غير نشط</p> : null}
+      {!account.active ? (
+        <p className="mt-1 text-xs font-bold text-destructive">
+          معطّل
+          {account.deactivated_at
+            ? ` ${account.deactivated_by_self ? "بطلب منه" : "بقرار منسّق"} · ${formatTime(account.deactivated_at)}`
+            : ""}
+        </p>
+      ) : account.open_tasks > 0 ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {account.open_tasks} مهمة جارية — لا يمكن تعطيل الحساب قبل توصيلها أو إعادة إسنادها
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -220,7 +289,7 @@ function CreateAccountForm({ onDone, onCancel }: { onDone: () => void; onCancel:
       toast.success("تم إنشاء الحساب وتفعيله");
       onDone();
     },
-    onError: (error) => toast.error(errorMessage(error, "تعذّر إنشاء الحساب")),
+    onError: (error) => toast.error(authErrorMessage(error, "تعذّر إنشاء الحساب")),
   });
 
   return (

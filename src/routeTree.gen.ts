@@ -16,6 +16,7 @@ import { Route as PendingRouteImport } from './routes/pending'
 import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
 import { Route as AuthenticatedCoordinatorRouteImport } from './routes/_authenticated/coordinator'
 import { Route as AuthenticatedFamiliesRouteImport } from './routes/_authenticated/families'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSourceRouteImport } from './routes/_authenticated/source'
 import { Route as AuthenticatedWorkerRouteImport } from './routes/_authenticated/worker'
 
@@ -54,6 +55,11 @@ const AuthenticatedFamiliesRoute = AuthenticatedFamiliesRouteImport.update({
   path: '/families',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSourceRoute = AuthenticatedSourceRouteImport.update({
   id: '/source',
   path: '/source',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/accounts': typeof AuthenticatedAccountsRoute
   '/coordinator': typeof AuthenticatedCoordinatorRoute
   '/families': typeof AuthenticatedFamiliesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/source': typeof AuthenticatedSourceRoute
   '/worker': typeof AuthenticatedWorkerRoute
 }
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/accounts': typeof AuthenticatedAccountsRoute
   '/coordinator': typeof AuthenticatedCoordinatorRoute
   '/families': typeof AuthenticatedFamiliesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/source': typeof AuthenticatedSourceRoute
   '/worker': typeof AuthenticatedWorkerRoute
 }
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/_authenticated/accounts': typeof AuthenticatedAccountsRoute
   '/_authenticated/coordinator': typeof AuthenticatedCoordinatorRoute
   '/_authenticated/families': typeof AuthenticatedFamiliesRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/source': typeof AuthenticatedSourceRoute
   '/_authenticated/worker': typeof AuthenticatedWorkerRoute
 }
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/coordinator'
     | '/families'
+    | '/settings'
     | '/source'
     | '/worker'
   fileRoutesByTo: FileRoutesByTo
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/coordinator'
     | '/families'
+    | '/settings'
     | '/source'
     | '/worker'
   id:
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/_authenticated/accounts'
     | '/_authenticated/coordinator'
     | '/_authenticated/families'
+    | '/_authenticated/settings'
     | '/_authenticated/source'
     | '/_authenticated/worker'
   fileRoutesById: FileRoutesById
@@ -189,6 +201,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFamiliesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/source': {
       id: '/_authenticated/source'
       path: '/source'
@@ -210,6 +229,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRoute
   AuthenticatedCoordinatorRoute: typeof AuthenticatedCoordinatorRoute
   AuthenticatedFamiliesRoute: typeof AuthenticatedFamiliesRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSourceRoute: typeof AuthenticatedSourceRoute
   AuthenticatedWorkerRoute: typeof AuthenticatedWorkerRoute
 }
@@ -218,6 +238,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountsRoute: AuthenticatedAccountsRoute,
   AuthenticatedCoordinatorRoute: AuthenticatedCoordinatorRoute,
   AuthenticatedFamiliesRoute: AuthenticatedFamiliesRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSourceRoute: AuthenticatedSourceRoute,
   AuthenticatedWorkerRoute: AuthenticatedWorkerRoute,
 }

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronLeft, LogOut } from "lucide-react";
+import { ChevronLeft, LogOut, Settings } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -8,12 +8,15 @@ export function AppShell({
   title,
   subtitle,
   showSignOut = false,
+  showSettings = false,
   backTo = "/",
   children,
 }: {
   title: string;
   subtitle?: string;
   showSignOut?: boolean;
+  /** Shows the gear that leads to /settings; only for signed-in screens with a role. */
+  showSettings?: boolean;
   /** Where the back arrow goes; null hides it (e.g. on a role's home screen). */
   backTo?: string | null;
   children: ReactNode;
@@ -35,6 +38,15 @@ export function AppShell({
             <h1 className="truncate text-base font-bold">{title}</h1>
             {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
           </div>
+          {showSettings ? (
+            <Link
+              to="/settings"
+              aria-label="إعدادات الحساب"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground"
+            >
+              <Settings className="size-4" />
+            </Link>
+          ) : null}
           {showSignOut ? (
             <button
               type="button"

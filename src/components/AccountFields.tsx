@@ -53,7 +53,16 @@ export function RoleSelect({
 }
 
 /** Profile fields for one role. Pair with readAccountProfile() on submit. */
-export function AccountFields({ role, idPrefix = "acct" }: { role: AppRole; idPrefix?: string }) {
+export function AccountFields({
+  role,
+  idPrefix = "acct",
+  defaultName,
+}: {
+  role: AppRole;
+  idPrefix?: string;
+  /** Pre-filled name, e.g. the one Google supplied on a first sign-in. */
+  defaultName?: string;
+}) {
   const [type, setType] = useState<SourceType>("restaurant");
   const id = (field: string) => `${idPrefix}-${field}`;
 
@@ -63,7 +72,14 @@ export function AccountFields({ role, idPrefix = "acct" }: { role: AppRole; idPr
         <Label htmlFor={id("name")}>
           {role === "source" ? "اسم المصدر" : role === "worker" ? "الاسم" : "اسم المنسّق"}
         </Label>
-        <Input id={id("name")} name="name" required minLength={2} maxLength={120} />
+        <Input
+          id={id("name")}
+          name="name"
+          required
+          minLength={2}
+          maxLength={120}
+          defaultValue={defaultName}
+        />
       </div>
 
       {role === "coordinator" ? (

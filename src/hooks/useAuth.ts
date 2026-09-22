@@ -5,19 +5,24 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/lib/pilot";
 
-export type MyAccount = { role: AppRole; approved: boolean } | null;
+export type MyAccount = {
+  role: AppRole;
+  approved: boolean;
+  /** false once the account has been deactivated — it keeps its history but loses every permission. */
+  active: boolean;
+  name: string | null;
+} | null;
 
-/** The signed-in user's role and approval (each account has at most one role). */
+/** The signed-in user's role, approval and active flag (each account has at most one role). */
 export async function fetchMyAccount(): Promise<MyAccount> {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) return null;
-  const { data, error } = await supabase
-    .from("user_roles")
-    .select("role,approved")
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("my_account");
   if (error) throw error;
-  return data ? { role: data.role as AppRole, approved: data.approved } : null;
+  const row = data?.[0];
+  return row
+    ? { role: row.role as AppRole, approved: row.approved, active: row.active, name: row.name }
+    : null;
 }
 
 export function useSession() {
@@ -52,6 +57,7 @@ export function useMyRole() {
     sessionReady: ready,
     role: query.data?.role ?? null,
     approved: query.data?.approved ?? false,
+    active: query.data?.active ?? true,
     loading: !ready || (!!user && query.isPending),
   };
 }

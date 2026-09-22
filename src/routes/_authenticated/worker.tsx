@@ -173,6 +173,7 @@ function WorkerPage() {
       title={`مرحبًا ${worker.name}`}
       subtitle={worker.area ? `منطقتك: ${worker.area}` : "لم تحدّد منطقتك بعد"}
       showSignOut
+      showSettings
       backTo={null}
     >
       {editingProfile ? (
